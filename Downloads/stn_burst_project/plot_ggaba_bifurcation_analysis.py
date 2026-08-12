@@ -46,10 +46,11 @@ def w_null_pvp():
 
 ww = w_null_pvp()
 
-# Generate inputs from Scenario 13 (Multi-ref Synthesis PD)
+# Generate inputs strictly from Scenario 2 (Mallet 2008 Rat Pair - Scenario ID 11 for PD)
+# CTX: 13.5 Hz + 20.5 Hz Beta, GPe: 14.6 Hz + 20.5 Hz Beta
 TOTAL_MS = 3500.0
 T_START, T_END = 2000.0, 3500.0
-gpe_spikes_p, ctx_spikes_p, weights_p, _ = generate_scenario(13, total_ms=TOTAL_MS, seed=42)
+gpe_spikes_p, ctx_spikes_p, weights_p, _ = generate_scenario(11, total_ms=TOTAL_MS, n_gpe=30, n_ctx=80, seed=42)
 
 p_pv_plus = MECHANISM_COLUMNS["PV+ Dynamic Reset ON"]
 
@@ -92,7 +93,7 @@ cv_fine = np.array(cv_fine)
 # Create Figure layout (2x2 grid)
 fig = plt.figure(figsize=(17, 11), facecolor="white")
 fig.suptitle(
-    "Synaptic Weight (g_GABA) Sweep & Bifurcation Analysis: Uncut Phase Plane & Nullcline Intersections",
+    "Scenario 2 (Mallet 2008 Rat) — Synaptic Weight (g_GABA) Sweep & Bifurcation Analysis",
     fontsize=14, fontweight="bold", y=0.98
 )
 

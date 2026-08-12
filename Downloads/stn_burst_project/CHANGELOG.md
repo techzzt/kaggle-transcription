@@ -8,11 +8,10 @@
 - **paired comparison 6컬럼 레이아웃 재설계** (`stn_borderline_tonic_burst_transition.py`):
   - `[Normal Raster | PV- Normal | PV+ Normal | PD Raster | PV- PD | PV+ PD]` 구조로 개편
   - PV-와 PV+를 나란히 비교하는 구조, 각 컬럼 타이틀에 발화율(Hz) 및 CV값 표시
-- **I_syn sweep 위상면 시각화** (`plot_bifurcation_proof.py`):
-  - I_syn 값별 V-nullcline 색상 그라디언트로 겹쳐 표시 (Phase Plane)
-  - min gap(V-null − w-null) vs I_syn 곡선으로 FP 존재 경계 명시
-  - Normal/PD 운영점 표시: gap >> 0 → FP = 0 (지속 발화 체제 확인)
-  - **결론**: I_syn은 Bifurcation parameter가 아님. 진짜 경계는 g_GABA ≈ 0.75 nS
+- **g_GABA 시냅스 가중치 스위핑 및 분기 분석 시각화** (`plot_ggaba_bifurcation_analysis.py`):
+  - `g_GABA` 스위프(0.20 ~ 3.50 nS)에 따른 **Phase Plane (Panel A)**, **Fixed Point Gap & Bifurcation Threshold (Panel B)**, **Membrane Potential $V(t)$ Traces (Panel C)**, **Firing Rate & CV Curve (Panel D)** 종합 분석 시각화 완료
+  - 생리적 범주($g_{\text{GABA}} = 0.64 \sim 1.14\text{ nS}$)에서는 Fixed Point가 0개(continuous firing regime)로 유지되며, $g_{\text{GABA}} \ge 3.20\text{ nS}$ 이상의 극단적 억제 조건에서만 Saddle-Node Bifurcation (FP=2, Silent)이 발생하는 것을 수학적/시각적으로 입증
+  - Tonic → Rebound Burst Barrage → Silent 레짐 전환 임계점 규명 완료
 
 
 

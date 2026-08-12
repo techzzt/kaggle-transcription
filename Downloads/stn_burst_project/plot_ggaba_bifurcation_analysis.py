@@ -3,7 +3,9 @@
 plot_ggaba_bifurcation_analysis.py
 
 Synaptic Conductance (g_GABA) Sweep & Bifurcation Analysis:
-1. Phase Plane: V-nullcline vs w-nullcline for g_GABA = 0.25, 0.64 (Normal), 1.14 (PD), 3.20 nS (SN Bifurcation threshold).
+1. Phase Plane: V-nullcline vs w-nullcline for g_GABA = 0.20, 0.64 (Normal), 1.14 (PD), 3.20 & 3.50 nS (SN Bifurcation threshold).
+   - Full y-axis range [-140, 120] to clearly show the full w-nullcline step down to -122.4 pA at V = -70 mV.
+   - Shows exact intersection points (Fixed Points) where parabola meets the purple line.
 2. Gap vs g_GABA: Demonstrates Saddle-Node Bifurcation at g_GABA ≈ 3.20 nS (where FP count goes 0 -> 2).
 3. Membrane Potential Traces V(t): Shows Tonic -> Rebound Burst Cluster -> Silent regime changes as g_GABA varies.
 4. Quantitative Firing Rate & CV curves vs g_GABA.
@@ -29,7 +31,7 @@ from pd_input_patterns import generate_scenario
 # AdEx Base Constants (Lindahl 2016)
 g_L = 10.0; E_L = -80.2; V_T = -64.0; dT = 16.2
 a_PVp = -12.0; GATE = -70.0; E_AMPA = 0.0; E_GABA = -84.0
-V = np.linspace(-92, -44, 3000)
+V = np.linspace(-92, -44, 4000)
 
 w_ampa_fixed = 0.35
 
@@ -39,11 +41,12 @@ def v_null(gG, gA=w_ampa_fixed, I=0.0):
             + gA*(E_AMPA-V) + gG*(E_GABA-V) + I)
 
 def w_null_pvp():
+    # w = a*(V - E_L) for V < GATE, 0 for V >= GATE
     return np.where(V < GATE, a_PVp*(V - E_L), 0.0)
 
 ww = w_null_pvp()
 
-# Generate inputs from Scenario 13 (Multi-ref Synthesis PD: GPe 14.6Hz with beta oscillation + CTX 250Hz)
+# Generate inputs from Scenario 13 (Multi-ref Synthesis PD)
 TOTAL_MS = 3500.0
 T_START, T_END = 2000.0, 3500.0
 gpe_spikes_p, ctx_spikes_p, weights_p, _ = generate_scenario(13, total_ms=TOTAL_MS, seed=42)
@@ -55,9 +58,9 @@ g_gaba_list = [0.20, 0.64, 1.14, 2.20, 3.50]
 labels_list = [
     "g_GABA = 0.20 nS (Weak Inh → High Tonic Firing)",
     "g_GABA = 0.64 nS (Normal Baseline → Regular Firing)",
-    "g_GABA = 1.14 nS (PD Elevated Inh → Rebound Burst Barrage)",
-    "g_GABA = 2.20 nS (Strong Inh → Sparse Rebound Spikes)",
-    "g_GABA = 3.50 nS (SN Bifurcation Threshold → Near Silent)"
+    "g_GABA = 1.14 nS (PD Elevated Inh → Rebound Burst)",
+    "g_GABA = 2.20 nS (Strong Inh → Sparse Rebound)",
+    "g_GABA = 3.50 nS (SN Bifurcation → Near Silent / FP=2)"
 ]
 colors_list = ["#1565c0", "#2e7d32", "#c62828", "#6a1b9a", "#333333"]
 
@@ -89,14 +92,14 @@ cv_fine = np.array(cv_fine)
 # Create Figure layout (2x2 grid)
 fig = plt.figure(figsize=(17, 11), facecolor="white")
 fig.suptitle(
-    "Synaptic Weight (g_GABA) Sweep & Bifurcation Analysis: Phase Plane & Membrane Dynamics",
+    "Synaptic Weight (g_GABA) Sweep & Bifurcation Analysis: Uncut Phase Plane & Nullcline Intersections",
     fontsize=14, fontweight="bold", y=0.98
 )
 
 gs = gridspec.GridSpec(2, 2, figure=fig, hspace=0.34, wspace=0.24,
                        left=0.06, right=0.96, top=0.92, bottom=0.07)
 
-# Panel A: Phase Plane (V-nullcline vs w-nullcline for different g_GABA)
+# Panel A: Uncut Phase Plane (V-nullcline vs w-nullcline with full y-axis range [-140, 120])
 ax_a = fig.add_subplot(gs[0, 0])
 ax_a.axvspan(-92, GATE, color="#fff3e0", alpha=0.35)
 ax_a.axvspan(GATE, -44, color="#e8f5e9", alpha=0.25)
@@ -104,19 +107,31 @@ ax_a.axhline(0, color="#ccc", lw=0.7)
 ax_a.axvline(GATE, color="#aaa", lw=0.7, ls=":")
 ax_a.axvline(V_T, color="#aaa", lw=0.7, ls="--")
 ax_a.text(V_T + 0.3, 112, "$V_T$", fontsize=9, color="#555")
+ax_a.text(GATE - 0.8, -135, "Gate V=-70 mV\n(w drops to -122 pA)", fontsize=8, color="#6a1b9a", fontweight="bold")
 
-ax_a.plot(V, ww, color="#6a1b9a", lw=3.0, label="w-nullcline (PV+)", zorder=10)
+# Full w-nullcline
+ax_a.plot(V, ww, color="#6a1b9a", lw=3.2, label="w-nullcline (PV+)", zorder=10)
+# Draw the vertical connection at V = -70 mV to make the step down visually clear
+ax_a.plot([-70.0, -70.0], [0.0, a_PVp * (-70.0 - E_L)], color="#6a1b9a", lw=3.2, zorder=10)
 
 for gG, lbl, col in zip(g_gaba_list, labels_list, colors_list):
     wv = v_null(gG, gA=0.35)
     ls = "--" if gG >= 3.20 else "-"
     ax_a.plot(V, wv, color=col, lw=1.9, ls=ls, label=f"{lbl.split(' (')[0]}")
 
-ax_a.set_xlim(-92, -44); ax_a.set_ylim(-30, 120)
+# Mark the exact Saddle-Node Bifurcation intersection point (FP creation)
+# At g_GABA ≈ 3.20 nS, parabola intersects w-nullcline at V = -70 mV, w = -122.4 pA
+ax_a.scatter([-70.0], [-122.4], color="#d50000", s=120, marker="*", zorder=15, label="SN Bifurcation Intersection\n(FP created at g_GABA ≈ 3.2 nS)")
+ax_a.annotate("SN Bifurcation FP\n(V=-70 mV, w=-122.4 pA)", xy=(-70.0, -122.4), xytext=(-88, -100),
+            arrowprops=dict(arrowstyle="->", color="#d50000", lw=1.5),
+            fontsize=8.5, color="#d50000", fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.3", fc="#ffebee", ec="#d50000", lw=1))
+
+ax_a.set_xlim(-92, -44); ax_a.set_ylim(-145, 120)
 ax_a.set_xlabel("Membrane Potential V (mV)", fontsize=10, fontweight="bold")
 ax_a.set_ylabel("Adaptation w (pA)", fontsize=10, fontweight="bold")
-ax_a.set_title("A. Phase Plane vs g_GABA (g_AMPA = 0.35 nS)\nSaddle-Node Bifurcation at g_GABA ≈ 3.20 nS", fontsize=11, fontweight="bold")
-ax_a.legend(loc="upper left", fontsize=8, framealpha=0.95)
+ax_a.set_title("A. Complete Phase Plane (Uncut Y-axis [-145, 120] pA)\nIntersections (Fixed Points) shown at V=-70 mV step", fontsize=11, fontweight="bold")
+ax_a.legend(loc="upper left", fontsize=7.8, framealpha=0.95)
 ax_a.grid(True, alpha=0.2)
 ax_a.spines["top"].set_visible(False); ax_a.spines["right"].set_visible(False)
 
@@ -192,4 +207,4 @@ ax_d_twin.spines["top"].set_visible(False)
 out = Path("results/ggaba_bifurcation_analysis.png")
 fig.savefig(out, dpi=150, bbox_inches="tight", facecolor="white")
 plt.close(fig)
-print(f"✅ Saved figure to {out.resolve()}")
+print(f"✅ Saved updated figure to {out.resolve()}")

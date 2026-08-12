@@ -36,7 +36,7 @@ gA_base, gG_base = 0.25, 0.64
 CURVES = [
     dict(I=0,   label="Normal  (I_syn = 0 pA)",        color="#1565c0", lw=2.4, ls="-",  zorder=6),
     dict(I=10,  label="PD approx  (I_syn = +10 pA)",   color="#c62828", lw=2.4, ls="-",  zorder=6),
-    dict(I=-33, label="Bifurcation threshold  (I_syn ≈ −33 pA)\n← first crossing with w-nullcline",
+    dict(I=-33, label="Bifurcation threshold  (I_syn ≈ −33 pA)\n← first crossing at V=-70 mV",
                                                          color="#555",   lw=1.6, ls="--", zorder=5),
 ]
 
@@ -46,7 +46,7 @@ min_gaps = [float((v_null(gA_base, gG_base, I) - ww).min()) for I in I_sweep]
 min_gaps = np.array(min_gaps)
 
 # ─────────────────────────────────────────────────────────────────────────────
-fig, axes = plt.subplots(1, 2, figsize=(13, 5.2), facecolor="white",
+fig, axes = plt.subplots(1, 2, figsize=(13, 5.5), facecolor="white",
                          gridspec_kw={"width_ratios": [1.4, 1.0], "wspace": 0.30})
 fig.suptitle(
     "I_syn is NOT a Bifurcation Parameter — Phase Plane Evidence",
@@ -66,15 +66,21 @@ ax.axvline(GATE, color="#aaa", lw=0.8, ls=":")
 ax.axvline(V_T,  color="#aaa", lw=0.8, ls="--")
 ax.text(V_T + 0.3, 108, "$V_T$", fontsize=9.5, color="#555")
 ax.text(-90, 108, "a-gate ON\n(V < −70)", fontsize=8.5, color="#bf360c", va="top")
+ax.text(GATE - 0.8, -135, "Gate V=-70 mV\n(w drops to -122 pA)", fontsize=8, color="#6a1b9a", fontweight="bold")
 
-# w-nullcline
+# Full w-nullcline
 ax.plot(V, ww, color="#6a1b9a", lw=3.0, zorder=10, label="w-nullcline  PV+")
+# Step down connection line at V = -70 mV
+ax.plot([-70.0, -70.0], [0.0, a_PVp * (-70.0 - E_L)], color="#6a1b9a", lw=3.0, zorder=10)
 
 # 3 V-nullclines
 for c in CURVES:
     wv = v_null(gA_base, gG_base, c["I"])
     ax.plot(V, wv, color=c["color"], lw=c["lw"], ls=c["ls"],
             alpha=0.95, zorder=c["zorder"], label=c["label"])
+
+# Mark intersection point for threshold curve
+ax.scatter([-70.0], [-122.4], color="#d50000", s=100, marker="*", zorder=15, label="Bifurcation Intersection (FP created)")
 
 # Annotate min gap for Normal and PD
 for I_op, label, col, dy in [(0, "gap = {:.1f} pA\n(no crossing)", "#1565c0", 12),
@@ -90,7 +96,7 @@ for I_op, label, col, dy in [(0, "gap = {:.1f} pA\n(no crossing)", "#1565c0", 12
             label.format(gap_op),
             fontsize=8.5, color=col, fontweight="bold", va="center")
 
-ax.set_xlim(-92, -44); ax.set_ylim(-28, 118)
+ax.set_xlim(-92, -44); ax.set_ylim(-145, 120)
 ax.set_xlabel("Membrane Potential V (mV)", fontsize=11, fontweight="bold")
 ax.set_ylabel("Adaptation current w (pA)", fontsize=11, fontweight="bold")
 ax.set_title("Phase Plane: V-nullcline (curves) vs w-nullcline (purple line)\n"

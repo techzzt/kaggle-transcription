@@ -396,10 +396,7 @@ def generate_phase_diagram():
     fig = plt.figure(figsize=(16, 11), facecolor="white")
     fig.suptitle("STN AdEx Phase Plane & Dynamics: Normal vs PD State",
                  fontsize=15, fontweight="bold", y=0.985)
-    fig.text(0.5, 0.945,
-             "Side-by-Side Comparison: Normal (Left, Green) vs PD (Right, Red)\n"
-             "Firing pattern is set by where the RESET lands relative to V-nullcline: below -> sharp burst; above -> sag / tonic",
-             ha="center", fontsize=10, color="#444")
+
 
     # 2 Columns (Normal Left, PD Right) x 2 Rows (Top: Phase Portrait, Bottom: V(t) Traces)
     gs = gridspec.GridSpec(2, 2, figure=fig, hspace=0.35, wspace=0.22,
@@ -745,22 +742,14 @@ def run_normal_pd_paired_comparison():
     fig = plt.figure(figsize=(38, 4.8 * len(paired_layout)), facecolor='white')
     fig.suptitle(
         "STN response to paired Normal vs PD presynaptic input",
-        fontsize=15, fontweight='bold', y=0.995
+        fontsize=15, fontweight='bold', y=0.99
     )
-    fig.text(0.5, 0.968,
-             "PV−: a=+0.3 nS, reset OFF (tonic)   "
-             "PV+ Reset OFF: a=−12 nS, reset OFF (does a alone cause burst?)   "
-             "PV+ Reset ON: a=−12 nS, reset ON (true burst cell)",
-             ha='center', fontsize=9.5, color='#333')
-    fig.text(0.5, 0.948,
-             "Time window: 2000–3500 ms  |  Green = Normal state,  Red = PD state",
-             ha='center', fontsize=9, color='#666')
 
     # Layout: 2 rows × 8 cols
     # [Normal Raster | PV- | PV+ OFF | PV+ ON | PD Raster | PV- | PV+ OFF | PV+ ON]
     gs = gridspec.GridSpec(len(paired_layout), 8, figure=fig,
                            hspace=0.50, wspace=0.16,
-                           left=0.03, right=0.99, top=0.93, bottom=0.07,
+                           left=0.03, right=0.99, top=0.95, bottom=0.07,
                            width_ratios=[0.9, 1.05, 1.05, 1.05, 0.9, 1.05, 1.05, 1.05])
 
     for row_idx, (title, normal_id, pd_id, note) in enumerate(paired_layout):

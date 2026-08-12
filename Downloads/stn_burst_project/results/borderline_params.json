@@ -1,0 +1,13 @@
+{
+  "a_nS": -1.2,
+  "tau_w_ms": 333.0,
+  "vr_mV": -70.0,
+  "g_cat_nS": 0.0,
+  "burst_threshold": 0.4,
+  "calibrated_in_scenario": 2,
+  "seeds": [
+    11,
+    12,
+    13
+  ]
+}

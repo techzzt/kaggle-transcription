@@ -742,24 +742,26 @@ def run_normal_pd_paired_comparison():
          "Normal: CTX 13.5 Hz / GPe 33.7 Hz  →  PD: CTX 13.5 Hz + 20.5 Hz Beta / GPe 14.6 Hz + 20.5 Hz Beta"),
     ]
 
-    fig = plt.figure(figsize=(28, 4.5 * len(paired_layout)), facecolor='white')
+    fig = plt.figure(figsize=(38, 4.8 * len(paired_layout)), facecolor='white')
     fig.suptitle(
         "STN response to paired Normal vs PD presynaptic input",
-        fontsize=15, fontweight='bold', y=0.99
+        fontsize=15, fontweight='bold', y=0.995
     )
-    fig.text(0.5, 0.965,
-             "Each row = one Normal/PD pair   |   PV\u2212: tonic adapting (reset OFF),  PV+: Burst (reset ON)",
-             ha='center', fontsize=10, color='#444')
-    fig.text(0.5, 0.945,
-             f"Time window: 2000\u20133500 ms (1500 ms steady-state duration)",
-             ha='center', fontsize=9.5, color='#666')
+    fig.text(0.5, 0.968,
+             "PV−: a=+0.3 nS, reset OFF (tonic)   "
+             "PV+ Reset OFF: a=−12 nS, reset OFF (does a alone cause burst?)   "
+             "PV+ Reset ON: a=−12 nS, reset ON (true burst cell)",
+             ha='center', fontsize=9.5, color='#333')
+    fig.text(0.5, 0.948,
+             "Time window: 2000–3500 ms  |  Green = Normal state,  Red = PD state",
+             ha='center', fontsize=9, color='#666')
 
-    # Layout: 2 rows (one per scenario pair) \xd7 6 cols
-    # [Normal Raster | PV- Normal | PV+ Normal | PD Raster | PV- PD | PV+ PD]
-    gs = gridspec.GridSpec(len(paired_layout), 6, figure=fig,
-                           hspace=0.45, wspace=0.18,
-                           left=0.04, right=0.98, top=0.92, bottom=0.07,
-                           width_ratios=[1.0, 1.15, 1.15, 1.0, 1.15, 1.15])
+    # Layout: 2 rows × 8 cols
+    # [Normal Raster | PV- | PV+ OFF | PV+ ON | PD Raster | PV- | PV+ OFF | PV+ ON]
+    gs = gridspec.GridSpec(len(paired_layout), 8, figure=fig,
+                           hspace=0.50, wspace=0.16,
+                           left=0.03, right=0.99, top=0.93, bottom=0.07,
+                           width_ratios=[0.9, 1.05, 1.05, 1.05, 0.9, 1.05, 1.05, 1.05])
 
     for row_idx, (title, normal_id, pd_id, note) in enumerate(paired_layout):
         normal_gpe, normal_ctx, normal_weights, _ = generate_scenario(
@@ -772,102 +774,87 @@ def run_normal_pd_paired_comparison():
         p_pv_plus  = MECHANISM_COLUMNS["PV+ Dynamic Reset ON"]
         p_pv_minus = MECHANISM_COLUMNS["PV-"]
 
-        # ── Pre-simulate all 4 traces ─────────────────────────────────────
-        t_n_p, v_n_p, _, _, fr_n_p, cv_n_p = simulate_ad_ex(
-            p_pv_plus, normal_gpe, normal_ctx,
-            g_gaba=normal_weights["g_gaba"], w_ampa=normal_weights["w_ampa"],
-            g_nmda=normal_weights["g_nmda"],
-            total_ms=TOTAL_MS, use_dynamic_reset=True)
-        t_n_m, v_n_m, _, _, fr_n_m, cv_n_m = simulate_ad_ex(
-            p_pv_minus, normal_gpe, normal_ctx,
-            g_gaba=normal_weights["g_gaba"], w_ampa=normal_weights["w_ampa"],
-            g_nmda=normal_weights["g_nmda"],
-            total_ms=TOTAL_MS, use_dynamic_reset=False)
-        t_p_p, v_p_p, _, _, fr_p_p, cv_p_p = simulate_ad_ex(
-            p_pv_plus, pd_gpe, pd_ctx,
-            g_gaba=0.64, w_ampa=0.35, g_nmda=0.15,
-            total_ms=TOTAL_MS, use_dynamic_reset=True)
-        t_p_m, v_p_m, _, _, fr_p_m, cv_p_m = simulate_ad_ex(
-            p_pv_minus, pd_gpe, pd_ctx,
-            g_gaba=0.64, w_ampa=0.35, g_nmda=0.15,
-            total_ms=TOTAL_MS, use_dynamic_reset=False)
+        def _sim(params, gpe, ctx, weights, use_reset):
+            g_gaba = weights["g_gaba"]
+            w_ampa = weights["w_ampa"]
+            g_nmda = weights["g_nmda"]
+            return simulate_ad_ex(params, gpe, ctx,
+                                  g_gaba=g_gaba, w_ampa=w_ampa, g_nmda=g_nmda,
+                                  total_ms=TOTAL_MS, use_dynamic_reset=use_reset)
 
-        m_n = (t_n_p >= T_START) & (t_n_p <= T_END)
-        m_p = (t_p_p >= T_START) & (t_p_p <= T_END)
+        def _sim_pd(params, gpe, ctx, use_reset):
+            return simulate_ad_ex(params, gpe, ctx,
+                                  g_gaba=0.64, w_ampa=0.35, g_nmda=0.15,
+                                  total_ms=TOTAL_MS, use_dynamic_reset=use_reset)
 
-        # ── Col 0: Normal Raster ──────────────────────────────────────────
-        ax0 = fig.add_subplot(gs[row_idx, 0])
-        ng_t = [t for t, _ in normal_gpe if T_START <= t <= T_END]
-        ng_n = [n for t, n in normal_gpe if T_START <= t <= T_END]
-        nc_t = [t for t, _ in normal_ctx if T_START <= t <= T_END]
-        nc_n = [n + N_GPE + 2 for t, n in normal_ctx if T_START <= t <= T_END]
-        if ng_t: ax0.scatter(ng_t, ng_n, color='#388e3c', marker='|', s=10, alpha=0.8)
-        if nc_t: ax0.scatter(nc_t, nc_n, color='#1565c0', marker='|', s=10, alpha=0.75)
-        ax0.axhline(N_GPE + 1, color='gray', lw=0.5, ls='--', alpha=0.5)
-        ax0.set_xlim(T_START, T_END); ax0.set_ylim(-2, N_GPE + N_CTX + 4)
-        ax0.set_title(f"{title}\nNormal input (GPe green / CTX blue)",
-                      fontsize=9.5, fontweight='bold', color='#2e7d32')
-        ax0.set_ylabel("Afferent ID", fontsize=9); ax0.tick_params(labelsize=7.5)
-        ax0.spines['top'].set_visible(False); ax0.spines['right'].set_visible(False)
+        # Normal: PV-, PV+ OFF, PV+ ON
+        t_n_m,  v_n_m,  _, _, fr_n_m,  cv_n_m  = _sim(p_pv_minus, normal_gpe, normal_ctx, normal_weights, False)
+        t_n_p0, v_n_p0, _, _, fr_n_p0, cv_n_p0 = _sim(p_pv_plus,  normal_gpe, normal_ctx, normal_weights, False)
+        t_n_p1, v_n_p1, _, _, fr_n_p1, cv_n_p1 = _sim(p_pv_plus,  normal_gpe, normal_ctx, normal_weights, True)
 
-        # ── Col 1: PV- Normal Vm ──────────────────────────────────────────
-        ax1 = fig.add_subplot(gs[row_idx, 1])
-        ax1.plot(t_n_m[m_n], v_n_m[m_n], color='#1565c0', lw=1.1)
-        ax1.axhline(-70, color='gray', lw=0.7, ls=':', alpha=0.6)
-        ax1.set_xlim(T_START, T_END); ax1.set_ylim(-90, 25)
-        ax1.set_title(f"PV\u2212  {fr_n_m:.1f} Hz  CV {cv_n_m:.2f} (steady)",
-                      fontsize=9.5, fontweight='bold', color='#1565c0')
-        ax1.set_ylabel("Vm (mV)", fontsize=9); ax1.tick_params(labelsize=7.5)
-        ax1.spines['top'].set_visible(False); ax1.spines['right'].set_visible(False)
+        # PD: PV-, PV+ OFF, PV+ ON
+        t_p_m,  v_p_m,  _, _, fr_p_m,  cv_p_m  = _sim_pd(p_pv_minus, pd_gpe, pd_ctx, False)
+        t_p_p0, v_p_p0, _, _, fr_p_p0, cv_p_p0 = _sim_pd(p_pv_plus,  pd_gpe, pd_ctx, False)
+        t_p_p1, v_p_p1, _, _, fr_p_p1, cv_p_p1 = _sim_pd(p_pv_plus,  pd_gpe, pd_ctx, True)
 
-        # ── Col 2: PV+ Normal Vm (reset ON) ──────────────────────────────
-        ax2 = fig.add_subplot(gs[row_idx, 2])
-        ax2.plot(t_n_p[m_n], v_n_p[m_n], color='#2e7d32', lw=1.1)
-        ax2.axhline(-70, color='gray', lw=0.7, ls=':', alpha=0.6)
-        ax2.set_xlim(T_START, T_END); ax2.set_ylim(-90, 25)
-        ax2.set_title(f"PV+  Burst (reset ON)\n{fr_n_p:.1f} Hz  CV {cv_n_p:.2f} (steady)",
-                      fontsize=9.5, fontweight='bold', color='#2e7d32')
-        ax2.set_ylabel("Vm (mV)", fontsize=9); ax2.tick_params(labelsize=7.5)
-        ax2.spines['top'].set_visible(False); ax2.spines['right'].set_visible(False)
+        m_n = (t_n_m  >= T_START) & (t_n_m  <= T_END)
+        m_p = (t_p_m  >= T_START) & (t_p_m  <= T_END)
+        m_np0 = (t_n_p0 >= T_START) & (t_n_p0 <= T_END)
+        m_np1 = (t_n_p1 >= T_START) & (t_n_p1 <= T_END)
+        m_pp0 = (t_p_p0 >= T_START) & (t_p_p0 <= T_END)
+        m_pp1 = (t_p_p1 >= T_START) & (t_p_p1 <= T_END)
 
-        # ── Col 3: PD Raster ─────────────────────────────────────────────
-        ax3 = fig.add_subplot(gs[row_idx, 3])
-        pg_t = [t for t, _ in pd_gpe if T_START <= t <= T_END]
-        pg_n = [n for t, n in pd_gpe if T_START <= t <= T_END]
-        pc_t = [t for t, _ in pd_ctx if T_START <= t <= T_END]
-        pc_n = [n + N_GPE + 2 for t, n in pd_ctx if T_START <= t <= T_END]
-        if pg_t: ax3.scatter(pg_t, pg_n, color='#388e3c', marker='|', s=10, alpha=0.8)
-        if pc_t: ax3.scatter(pc_t, pc_n, color='#1565c0', marker='|', s=10, alpha=0.75)
-        ax3.axhline(N_GPE + 1, color='gray', lw=0.5, ls='--', alpha=0.5)
-        ax3.set_xlim(T_START, T_END); ax3.set_ylim(-2, N_GPE + N_CTX + 4)
-        ax3.set_title(f"{title}\nPD input (GPe green / CTX blue)",
-                      fontsize=9.5, fontweight='bold', color='#c62828')
-        ax3.set_ylabel("Afferent ID", fontsize=9); ax3.tick_params(labelsize=7.5)
-        ax3.spines['top'].set_visible(False); ax3.spines['right'].set_visible(False)
+        def _panel(col, title, t, v, mask, color, ylabel=True):
+            ax = fig.add_subplot(gs[row_idx, col])
+            ax.plot(t[mask], v[mask], color=color, lw=1.1)
+            ax.axhline(-70, color='gray', lw=0.6, ls=':', alpha=0.55)
+            ax.set_xlim(T_START, T_END); ax.set_ylim(-90, 25)
+            ax.set_title(title, fontsize=8.5, fontweight='bold', color=color)
+            if ylabel:
+                ax.set_ylabel("Vm (mV)", fontsize=8)
+            ax.tick_params(labelsize=7)
+            ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+            return ax
 
-        # ── Col 4: PV- PD Vm ─────────────────────────────────────────────
-        ax4 = fig.add_subplot(gs[row_idx, 4])
-        ax4.plot(t_p_m[m_p], v_p_m[m_p], color='#1565c0', lw=1.1)
-        ax4.axhline(-70, color='gray', lw=0.7, ls=':', alpha=0.6)
-        ax4.set_xlim(T_START, T_END); ax4.set_ylim(-90, 25)
-        ax4.set_title(f"PV\u2212  Tonic (reset OFF)\n{fr_p_m:.1f} Hz  CV {cv_p_m:.2f} (steady)",
-                      fontsize=9.5, fontweight='bold', color='#1565c0')
-        ax4.set_ylabel("Vm (mV)", fontsize=9); ax4.tick_params(labelsize=7.5)
-        ax4.spines['top'].set_visible(False); ax4.spines['right'].set_visible(False)
+        def _raster(col, gpe_spikes, ctx_spikes, title, title_color):
+            ax = fig.add_subplot(gs[row_idx, col])
+            gt = [t for t, _ in gpe_spikes if T_START <= t <= T_END]
+            gn = [n for t, n in gpe_spikes if T_START <= t <= T_END]
+            ct = [t for t, _ in ctx_spikes if T_START <= t <= T_END]
+            cn = [n + N_GPE + 2 for t, n in ctx_spikes if T_START <= t <= T_END]
+            if gt: ax.scatter(gt, gn, color='#388e3c', marker='|', s=9, alpha=0.8)
+            if ct: ax.scatter(ct, cn, color='#1565c0', marker='|', s=9, alpha=0.75)
+            ax.axhline(N_GPE + 1, color='gray', lw=0.5, ls='--', alpha=0.5)
+            ax.set_xlim(T_START, T_END); ax.set_ylim(-2, N_GPE + N_CTX + 4)
+            ax.set_title(title, fontsize=8.5, fontweight='bold', color=title_color)
+            ax.set_ylabel("Afferent ID", fontsize=8)
+            ax.tick_params(labelsize=7)
+            ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+            return ax
 
-        # ── Col 5: PV+ PD Vm (reset ON) ──────────────────────────────────
-        ax5 = fig.add_subplot(gs[row_idx, 5])
-        ax5.plot(t_p_p[m_p], v_p_p[m_p], color='#c62828', lw=1.2)
-        ax5.axhline(-70, color='gray', lw=0.7, ls=':', alpha=0.6)
-        ax5.set_xlim(T_START, T_END); ax5.set_ylim(-90, 25)
-        ax5.set_title(f"PV+  Burst (reset ON)\n{fr_p_p:.1f} Hz  CV {cv_p_p:.2f}",
-                      fontsize=9.5, fontweight='bold', color='#c62828')
-        ax5.set_ylabel("Vm (mV)", fontsize=9); ax5.tick_params(labelsize=7.5)
-        ax5.spines['top'].set_visible(False); ax5.spines['right'].set_visible(False)
+        # ──── NORMAL side ────
+        _raster(0, normal_gpe, normal_ctx,
+                f"{title}\nNormal (GPe green / CTX blue)", '#2e7d32')
+        _panel(1, f"PV−  (a=+0.3, reset OFF)\n{fr_n_m:.1f} Hz  CV {cv_n_m:.2f}",
+               t_n_m, v_n_m, m_n, '#1565c0')
+        _panel(2, f"PV+ Reset OFF  (a=−12)\n{fr_n_p0:.1f} Hz  CV {cv_n_p0:.2f}",
+               t_n_p0, v_n_p0, m_np0, '#6a1b9a')
+        _panel(3, f"PV+ Reset ON  (a=−12)\n{fr_n_p1:.1f} Hz  CV {cv_n_p1:.2f}",
+               t_n_p1, v_n_p1, m_np1, '#2e7d32')
+
+        # ──── PD side ────
+        _raster(4, pd_gpe, pd_ctx,
+                f"{title}\nPD (GPe green / CTX blue)", '#c62828')
+        _panel(5, f"PV−  (a=+0.3, reset OFF)\n{fr_p_m:.1f} Hz  CV {cv_p_m:.2f}",
+               t_p_m, v_p_m, m_p, '#1565c0')
+        _panel(6, f"PV+ Reset OFF  (a=−12)\n{fr_p_p0:.1f} Hz  CV {cv_p_p0:.2f}",
+               t_p_p0, v_p_p0, m_pp0, '#6a1b9a')
+        _panel(7, f"PV+ Reset ON = BURST\n{fr_p_p1:.1f} Hz  CV {cv_p_p1:.2f}",
+               t_p_p1, v_p_p1, m_pp1, '#c62828')
 
         if row_idx == len(paired_layout) - 1:
-            for ax in [ax0, ax1, ax2, ax3, ax4, ax5]:
-                ax.set_xlabel("Time (ms)", fontsize=9, fontweight='bold')
+            for col in range(8):
+                fig.axes[-(8 - col)].set_xlabel("Time (ms)", fontsize=8, fontweight='bold')
 
     out = Path("results/stn_normal_vs_pd_pairs.png")
     fig.savefig(out, dpi=150, bbox_inches='tight', facecolor='white')

@@ -824,18 +824,18 @@ def run_normal_pd_paired_comparison():
 
         # ── Column 3: PD STN Vm(t) ───────────────────────────────────────
         ax_p_vm = fig.add_subplot(gs[row_idx, 3])
-        t_p_p, v_p_p, _, _, fr_p_p, _ = simulate_ad_ex(
+        t_p_p, v_p_p, _, _, fr_p_p, cv_p_p = simulate_ad_ex(
             p_pv_plus, pd_gpe, pd_ctx,
-            g_gaba=pd_weights["g_gaba"], w_ampa=pd_weights["w_ampa"], g_nmda=pd_weights["g_nmda"],
+            g_gaba=0.64, w_ampa=0.35, g_nmda=0.15,
             total_ms=TOTAL_MS, use_dynamic_reset=True)
-        t_p_m, v_p_m, _, _, fr_p_m, _ = simulate_ad_ex(
+        t_p_m, v_p_m, _, _, fr_p_m, cv_p_m = simulate_ad_ex(
             p_pv_minus, pd_gpe, pd_ctx,
-            g_gaba=pd_weights["g_gaba"], w_ampa=pd_weights["w_ampa"], g_nmda=pd_weights["g_nmda"],
+            g_gaba=0.64, w_ampa=0.35, g_nmda=0.15,
             total_ms=TOTAL_MS, use_dynamic_reset=False)
 
         m_p = (t_p_p >= T_START) & (t_p_p <= T_END)
-        ax_p_vm.plot(t_p_p[m_p], v_p_p[m_p], color='#c62828', lw=1.2, label="PV+ Rebound Burst")
-        ax_p_vm.plot(t_p_m[m_p], v_p_m[m_p], color='#1565c0', lw=1.0, ls='--', alpha=0.7, label="PV- Adapting")
+        ax_p_vm.plot(t_p_p[m_p], v_p_p[m_p], color='#c62828', lw=1.2, label=f"PV+ Rebound Burst (CV {cv_p_p:.2f})")
+        ax_p_vm.plot(t_p_m[m_p], v_p_m[m_p], color='#1565c0', lw=1.0, ls='--', alpha=0.7, label=f"PV- Adapting (CV {cv_p_m:.2f})")
         ax_p_vm.set_xlim(T_START, T_END); ax_p_vm.set_ylim(-90, 25)
         ax_p_vm.set_title("PD Membrane Potential Vm(t)", fontsize=11, fontweight='bold', color='#c62828')
         ax_p_vm.set_ylabel("Vm (mV)", fontsize=9.5, fontweight='bold')

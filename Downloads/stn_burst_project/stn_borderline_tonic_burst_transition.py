@@ -429,9 +429,8 @@ def generate_phase_diagram():
         ax.text(VT + 0.3, 138, "$V_T$", fontsize=9.5, color="#555", va="top")
         ax.text(GATE - 3.6, 138, "a-gate", fontsize=8.5, color="#555", va="top")
 
-        ax.plot(V, wv0, color="k", ls="--", lw=1.2, zorder=4, label="V-null (no input)")
-        ax.plot(V, wv, color="k", ls="-", lw=2.0, zorder=4,
-                label=f"V-null (g_AMPA={gA:.2f}, g_GABA={gG:.2f} nS)")
+        ax.plot(V, wv, color="k", ls="-", lw=2.2, zorder=4,
+                label=f"V-nullcline (Active Input: g_AMPA={gA:.2f}, g_GABA={gG:.2f} nS)")
 
         # Clear distinct w-nullclines: PV- (Blue) vs PV+ (Green/Red)
         ww_pv_minus = w_null(CELL_TYPES["PV-"]["a_nS"])

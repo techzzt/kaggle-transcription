@@ -355,7 +355,7 @@ def generate_phase_diagram():
     print("\n[Fig 1: Phase Plane Diagram — Naud et al. 2008 Fig. 1 style]")
 
     TOTAL_MS = 3500.0
-    T0, T1 = 2000.0, 3000.0
+    T0, T1 = 2000.0, 3500.0
     N_GPE, N_CTX = 30, 50
 
     b = ADEX_BASE
@@ -457,12 +457,15 @@ def generate_phase_diagram():
                     arrowprops=dict(arrowstyle="->", color=theme_color, lw=1.2))
 
         # Trajectories
+        # Trajectories (Bold, vibrant orbital loops over 2000-3500 ms)
         pc_plus = MECHANISM_COLUMNS["PV+ Dynamic Reset ON"]
         t_arr, v_tr, w_tr, sp, fr_p, cv_p = simulate_ad_ex(
             pc_plus, gpe, ctx, g_gaba=wts["g_gaba"], w_ampa=wts["w_ampa"], g_nmda=wts["g_nmda"],
             total_ms=TOTAL_MS, use_dynamic_reset=True)
         m = (t_arr >= T0) & (t_arr <= T1)
-        ax.plot(v_tr[m], w_tr[m], color=theme_color, lw=0.9, alpha=0.8, zorder=6, label="Trajectory (V, w)")
+        ax.plot(v_tr[m], w_tr[m], color=theme_color, lw=1.6, alpha=0.85, zorder=7, label="Spiking Trajectory Orbit (V, w)")
+        # Scatter markers along orbit to show flow direction
+        ax.scatter(v_tr[m][::100], w_tr[m][::100], color=theme_color, s=16, alpha=0.7, zorder=8)
 
         ax.set_xlim(V[0], V[-1])
         ax.set_ylim(-45, 145)

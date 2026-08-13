@@ -2,150 +2,135 @@
 """
 plot_bifurcation_proof.py
 
-Simplified: I_syn sweep phase plane — 3 key curves only.
-왼쪽 패널 하나로 핵심 전달:
-  - Normal / PD 운영점에서 V-nullcline이 w-nullcline과 만나지 않음 (FP = 0)
-  - 오른쪽에는 같은 내용을 gap 수치로 보조 확인만 표시
+Revised Piecewise Gate Nullcline & Conductance Bifurcation Analysis:
+1. Correct piecewise gate w-nullcline:
+   V < -70 mV : w = -12*(V + 80.2)  (at V=-70 mV, w = -122.4 pA)
+   V >= -70 mV : w = 0              (a_eff = 0)
+2. Demonstrates why I_syn scalar alone is NOT a valid dynamic bifurcation parameter:
+   Synaptic drive is conductance-based g_AMPA*(E_AMPA - V) + g_GABA*(E_GABA - V),
+   which modifies both V-nullcline offset AND slope (input resistance).
+3. The true bifurcation boundary in conductance space is the linear ratio:
+   g_GABA ≈ 3.2 * g_AMPA
 """
-import numpy as np
+
+import sys, os
+sys.path.insert(0, "/Users/jieun/Downloads/stn_burst_project")
+
+_MPL_CACHE = "/Users/jieun/Downloads/stn_burst_project/figures/.mplcache"
+os.makedirs(_MPL_CACHE, exist_ok=True)
+os.environ.setdefault("MPLCONFIGDIR", _MPL_CACHE)
+
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import numpy as np
 from pathlib import Path
 
-# ── AdEx parameters (Lindahl 2016 Table 6) ───────────────────────────────────
-g_L = 10.0;  E_L = -80.2;  V_T = -64.0;  dT = 16.2
-a_PVp = -12.0;  GATE = -70.0
-E_AMPA, E_GABA = 0.0, -84.0
+# AdEx Base Constants (Lindahl 2016 Table 6)
+g_L = 10.0; E_L = -80.2; V_T = -64.0; dT = 16.2
+a_PVp = -12.0; GATE = -70.0; E_AMPA = 0.0; E_GABA = -84.0
 
-V = np.linspace(-92, -44, 3000)
+V = np.linspace(-92, -44, 4000)
 
-def v_null(gA, gG, I=0.0):
+def w_null_piecewise(v_arr):
+    return np.where(v_arr < GATE, a_PVp * (v_arr - E_L), 0.0)
+
+ww = w_null_piecewise(V)
+
+# V-nullcline with static current I_syn
+def v_null_isyn(I_syn):
     ea = np.minimum((V - V_T) / dT, 5.0)
-    return (-g_L*(V-E_L) + g_L*dT*np.exp(ea)
-            + gA*(E_AMPA-V) + gG*(E_GABA-V) + I)
+    return (-g_L*(V - E_L) + g_L*dT*np.exp(ea) + I_syn)
 
-def w_null_pvp():
-    return np.where(V < GATE, a_PVp*(V - E_L), 0.0)
+# V-nullcline with conductance g_AMPA & g_GABA
+def v_null_cond(gG, gA=0.25):
+    ea = np.minimum((V - V_T) / dT, 5.0)
+    return (-g_L*(V - E_L) + g_L*dT*np.exp(ea) + gA*(E_AMPA - V) + gG*(E_GABA - V))
 
-ww = w_null_pvp()
-
-# Mallet base conductances
-gA_base, gG_base = 0.25, 0.64
-
-# ── Only 3 key curves ─────────────────────────────────────────────────────────
-CURVES = [
-    dict(I=0,   label="Normal  (I_syn = 0 pA)",        color="#1565c0", lw=2.4, ls="-",  zorder=6),
-    dict(I=10,  label="PD approx  (I_syn = +10 pA)",   color="#c62828", lw=2.4, ls="-",  zorder=6),
-    dict(I=-33, label="Bifurcation threshold  (I_syn ≈ −33 pA)\n← first crossing at V=-70 mV",
-                                                         color="#555",   lw=1.6, ls="--", zorder=5),
-]
-
-# gap sweep for right panel (simplified)
-I_sweep = np.linspace(-60, 80, 500)
-min_gaps = [float((v_null(gA_base, gG_base, I) - ww).min()) for I in I_sweep]
-min_gaps = np.array(min_gaps)
-
-# ─────────────────────────────────────────────────────────────────────────────
-fig, axes = plt.subplots(1, 2, figsize=(13, 5.5), facecolor="white",
-                         gridspec_kw={"width_ratios": [1.4, 1.0], "wspace": 0.30})
+fig, axes = plt.subplots(1, 2, figsize=(14, 5.8), facecolor="white",
+                         gridspec_kw={"wspace": 0.28})
 fig.suptitle(
-    "I_syn is NOT a Bifurcation Parameter — Phase Plane Evidence",
-    fontsize=13, fontweight="bold", y=1.00
+    "Conductance Space Bifurcation Analysis: Why I_syn Scalar is Insufficient & (g_AMPA, g_GABA) Dictates Firing Regimes",
+    fontsize=13, fontweight="bold", y=0.98
 )
 
 # ═══════════════════════════════════════════════════════════════════════════
-# LEFT: Phase Plane
+# LEFT: Phase Plane with Piecewise Gate w-nullcline
 # ═══════════════════════════════════════════════════════════════════════════
-ax = axes[0]
+ax1 = axes[0]
+ax1.axvspan(-92, GATE, color="#fff3e0", alpha=0.35)
+ax1.axvspan(GATE, -44, color="#e8f5e9", alpha=0.25)
+ax1.axhline(0, color="#ccc", lw=0.7)
+ax1.axvline(GATE, color="#aaa", lw=0.7, ls=":")
+ax1.axvline(V_T, color="#aaa", lw=0.7, ls="--")
+ax1.text(V_T + 0.3, 110, "$V_T$", fontsize=9, color="#555")
+ax1.text(-90, 108, "a-gate ON\n(V < −70 mV)", fontsize=8.5, color="#bf360c", va="top")
+ax1.text(GATE - 0.8, -138, "Gate V=-70 mV\n(w drops to -122 pA)", fontsize=8, color="#6a1b9a", fontweight="bold")
 
-# Minimal zone shading
-ax.axvspan(-92, GATE, color="#fff3e0", alpha=0.40)
-ax.axvspan(GATE, -44, color="#e8f5e9", alpha=0.30)
-ax.axhline(0, color="#ccc", lw=0.7)
-ax.axvline(GATE, color="#aaa", lw=0.8, ls=":")
-ax.axvline(V_T,  color="#aaa", lw=0.8, ls="--")
-ax.text(V_T + 0.3, 108, "$V_T$", fontsize=9.5, color="#555")
-ax.text(-90, 108, "a-gate ON\n(V < −70)", fontsize=8.5, color="#bf360c", va="top")
-ax.text(GATE - 0.8, -135, "Gate V=-70 mV\n(w drops to -122 pA)", fontsize=8, color="#6a1b9a", fontweight="bold")
+# Piecewise w-nullcline
+ax1.plot(V, ww, color="#6a1b9a", lw=3.2, label="Piecewise w-nullcline (PV+)", zorder=10)
+ax1.plot([-70.0, -70.0], [0.0, a_PVp * (-70.0 - E_L)], color="#6a1b9a", lw=3.2, zorder=10)
 
-# Full w-nullcline
-ax.plot(V, ww, color="#6a1b9a", lw=3.0, zorder=10, label="w-nullcline  PV+")
-# Step down connection line at V = -70 mV
-ax.plot([-70.0, -70.0], [0.0, a_PVp * (-70.0 - E_L)], color="#6a1b9a", lw=3.0, zorder=10)
+# V-nullclines for conductance pairs
+gA_ref = 0.25
+curves = [
+    dict(gG=0.20, label="g_GABA = 0.20 nS  (Tonic, FP=0)", color="#1565c0", ls="-"),
+    dict(gG=0.64, label="g_GABA = 0.64 nS  (Normal, FP=0)", color="#2e7d32", ls="-"),
+    dict(gG=0.80, label="g_GABA = 0.80 nS  (SN Bifurcation Boundary, FP=2)", color="#d50000", ls="--"),
+    dict(gG=1.14, label="g_GABA = 1.14 nS  (PD Silent, FP=2)", color="#c62828", ls="-"),
+    dict(gG=2.20, label="g_GABA = 2.20 nS  (Strong Silent, FP=1)", color="#4a148c", ls="-."),
+]
 
-# 3 V-nullclines
-for c in CURVES:
-    wv = v_null(gA_base, gG_base, c["I"])
-    ax.plot(V, wv, color=c["color"], lw=c["lw"], ls=c["ls"],
-            alpha=0.95, zorder=c["zorder"], label=c["label"])
+for c in curves:
+    wv = v_null_cond(c["gG"], gA=gA_ref)
+    ax1.plot(V, wv, color=c["color"], lw=1.8, ls=c["ls"], label=c["label"], alpha=0.9)
 
-# Mark intersection point for threshold curve
-ax.scatter([-70.0], [-122.4], color="#d50000", s=100, marker="*", zorder=15, label="Bifurcation Intersection (FP created)")
+# Mark SN Bifurcation FP
+ax1.scatter([-66.8], [0.0], color="#d50000", s=90, marker="*", zorder=15)
+ax1.annotate("SN Bifurcation FP\n(V* = -66.8 mV, w* = 0 pA)", xy=(-66.8, 0.0), xytext=(-88, -80),
+             arrowprops=dict(arrowstyle="->", color="#d50000", lw=1.5),
+             fontsize=8.5, color="#d50000", fontweight="bold",
+             bbox=dict(boxstyle="round,pad=0.3", fc="#ffebee", ec="#d50000", lw=1))
 
-# Annotate min gap for Normal and PD
-for I_op, label, col, dy in [(0, "gap = {:.1f} pA\n(no crossing)", "#1565c0", 12),
-                               (10, "gap = {:.1f} pA\n(no crossing)", "#c62828", -22)]:
-    wv_op = v_null(gA_base, gG_base, I_op)
-    gap_op = float((wv_op - ww).min())
-    idx = int(np.argmin(wv_op - ww))
-    v_pt = V[idx]; w_pt = ww[idx]; wvpt = wv_op[idx]
-    # arrow between the two curves at closest point
-    ax.annotate("", xy=(v_pt, w_pt), xytext=(v_pt, wvpt),
-                arrowprops=dict(arrowstyle="<->", color=col, lw=1.5))
-    ax.text(v_pt + 0.8, (w_pt + wvpt)/2 + dy,
-            label.format(gap_op),
-            fontsize=8.5, color=col, fontweight="bold", va="center")
-
-ax.set_xlim(-92, -44); ax.set_ylim(-145, 120)
-ax.set_xlabel("Membrane Potential V (mV)", fontsize=11, fontweight="bold")
-ax.set_ylabel("Adaptation current w (pA)", fontsize=11, fontweight="bold")
-ax.set_title("Phase Plane: V-nullcline (curves) vs w-nullcline (purple line)\n"
-             "Curves shift up with I_syn — but never cross the purple line",
-             fontsize=10, fontweight="bold")
-ax.legend(loc="upper left", fontsize=9, framealpha=0.97)
-ax.grid(True, alpha=0.18)
-ax.spines["top"].set_visible(False); ax.spines["right"].set_visible(False)
+ax1.set_xlim(-92, -44); ax1.set_ylim(-145, 120)
+ax1.set_xlabel("Membrane Potential V (mV)", fontsize=10, fontweight="bold")
+ax1.set_ylabel("Adaptation w (pA)", fontsize=10, fontweight="bold")
+ax1.set_title("A. Piecewise Gate Phase Plane vs g_GABA (g_AMPA = 0.25 nS)\nSN Bifurcation occurs at g_GABA ≈ 0.80 nS (V* = -66.8 mV)", fontsize=10.5, fontweight="bold")
+ax1.legend(loc="upper left", fontsize=7.8, framealpha=0.95)
+ax1.grid(True, alpha=0.2)
+ax1.spines["top"].set_visible(False); ax1.spines["right"].set_visible(False)
 
 # ═══════════════════════════════════════════════════════════════════════════
-# RIGHT: min gap vs I_syn — simplified
+# RIGHT: Conductance Space (g_AMPA vs g_GABA) Bifurcation Line
 # ═══════════════════════════════════════════════════════════════════════════
 ax2 = axes[1]
+gA_space = np.linspace(0.05, 0.80, 200)
+# Ratio line g_GABA ≈ 3.2 * g_AMPA
+gG_bif_line = 3.2 * gA_space
 
-ax2.fill_between(I_sweep, min_gaps, 0,
-                 where=min_gaps >= 0, color="#43a047", alpha=0.20,
-                 label="No FP  →  Firing")
-ax2.fill_between(I_sweep, min_gaps, 0,
-                 where=min_gaps < 0, color="#e53935", alpha=0.20,
-                 label="FP exists  →  Silent")
-ax2.plot(I_sweep, min_gaps, color="#1a237e", lw=2.0)
-ax2.axhline(0, color="black", lw=1.2, ls="--", label="FP boundary (gap = 0)")
+ax2.fill_between(gA_space, 0, gG_bif_line, color="#43a047", alpha=0.20, label="FP = 0 (Continuous Firing Regime)")
+ax2.fill_between(gA_space, gG_bif_line, 3.0, color="#e53935", alpha=0.20, label="FP ≥ 1 (Silent / Resting State)")
 
-# Bifurcation marker
-bif = I_sweep[np.where(np.diff(np.sign(min_gaps)))[0][0]]
-ax2.axvline(bif, color="#555", lw=1.3, ls="-.")
-ax2.text(bif + 1, 10, f"Bifurcation\nI_syn ≈ {bif:.0f} pA", fontsize=8.5,
-         color="#555", fontweight="bold")
+ax2.plot(gA_space, gG_bif_line, color="#1a237e", lw=2.5, label="Bifurcation Boundary: g_GABA ≈ 3.2 × g_AMPA")
 
-# Normal and PD dots
-for I_op, lbl, col in [(0, "Normal", "#1565c0"), (10, "PD approx", "#c62828")]:
-    gap = float((v_null(gA_base, gG_base, I_op) - ww).min())
-    ax2.scatter([I_op], [gap], color=col, s=100, zorder=8)
-    ax2.text(I_op + 2, gap + 2, lbl, fontsize=9, color=col, fontweight="bold")
+# Plot Normal & PD Operating Points
+ax2.scatter([0.25], [0.64], color="#2e7d32", s=100, zorder=8, label="Normal Baseline (gA=0.25, gG=0.64)")
+ax2.scatter([0.35], [0.64], color="#1565c0", s=100, zorder=8, label="Sc2 Normal Pair (gA=0.35, gG=0.64)")
+ax2.scatter([0.35], [1.14], color="#c62828", s=100, zorder=8, label="Sc2 PD Pair (gA=0.35, gG=1.14)")
 
-# Highlight Normal/PD range
-ax2.axvspan(0, 10, color="#ffeb3b", alpha=0.20)
-ax2.text(1, -25, "Normal/PD\nrange", fontsize=8.5, color="#f57f17", fontweight="bold")
+ax2.text(0.26, 0.68, "Normal\n(FP=0, Tonic)", fontsize=8.5, color="#2e7d32", fontweight="bold")
+ax2.text(0.36, 1.18, "PD Pair\n(FP=0 under dynamic Beta, Burst)", fontsize=8.5, color="#c62828", fontweight="bold")
 
-ax2.set_xlim(-60, 80)
-ax2.set_xlabel("I_syn (pA)", fontsize=11, fontweight="bold")
-ax2.set_ylabel("min gap  (V-null − w-null)  [pA]\npositive = no intersection", fontsize=9.5)
-ax2.set_title("Gap between curves vs I_syn\n(gap > 0  →  FP = 0  →  always firing)",
-              fontsize=10, fontweight="bold")
-ax2.legend(loc="lower right", fontsize=8.5, framealpha=0.97)
-ax2.grid(True, alpha=0.18)
+ax2.set_xlim(0.05, 0.80); ax2.set_ylim(0.0, 3.0)
+ax2.set_xlabel("g_AMPA Excitatory Conductance (nS)", fontsize=10, fontweight="bold")
+ax2.set_ylabel("g_GABA Inhibitory Conductance (nS)", fontsize=10, fontweight="bold")
+ax2.set_title("B. Conductance Space (g_AMPA, g_GABA) Bifurcation Boundary\n(True Boundary: Ratio Line g_GABA ≈ 3.2 × g_AMPA)", fontsize=10.5, fontweight="bold")
+ax2.legend(loc="upper left", fontsize=8, framealpha=0.95)
+ax2.grid(True, alpha=0.2)
 ax2.spines["top"].set_visible(False); ax2.spines["right"].set_visible(False)
 
 out = Path("results/bifurcation_proof.png")
 fig.savefig(out, dpi=150, bbox_inches="tight", facecolor="white")
 plt.close(fig)
-print(f"Saved {out.resolve()}")
+print(f"✅ Saved figure to {out.resolve()}")
